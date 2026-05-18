@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getStats } from '@/lib/store';
 import { PlusCircle, MessageCircleHeart, BookOpen, Sparkles } from 'lucide-react';
+import { PersonalMotives } from '@/components/personal-motives';
 
 export default function HomePage() {
   const [stats, setStats] = useState({
@@ -44,6 +45,9 @@ export default function HomePage() {
             y a tener apoyo cuando lo necesites.
           </p>
         </section>
+
+        {/* Motivos Personales */}
+        <PersonalMotives />
 
         {/* Stats */}
         {mounted && <DashboardStats stats={stats} />}

@@ -4,6 +4,7 @@ import { Leaf, MessageCircleHeart, ListChecks, BarChart3, Calendar } from 'lucid
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const navItems = [
   { href: '/', label: 'Inicio', icon: Leaf },
@@ -42,6 +43,7 @@ export function Header() {
               <span className="hidden sm:inline">{label}</span>
             </Link>
           ))}
+          <ThemeToggle />
         </nav>
       </div>
     </header>
