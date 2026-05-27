@@ -38,7 +38,7 @@ export default function CalendarioPage() {
 
   useEffect(() => {
     setMounted(true);
-    setAllRecords(getRecords());
+    getRecords().then(setAllRecords);
     setSelectedDay(new Date().getDate());
   }, []);
 

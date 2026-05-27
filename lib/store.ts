@@ -1,59 +1,78 @@
-'use client';
+import { ConsumptionRecord, EmotionalState, Trigger } from './types';
+import { supabase } from './supabase';
 
-import { ConsumptionRecord } from './types';
+export async function getRecords(): Promise<ConsumptionRecord[]> {
+  const { data, error } = await supabase
+    .from('registros_consumo')
+    .select('*')
+    .order('fecha', { ascending: false });
 
-// In-memory store for demo purposes, synchronized with localStorage
-let records: ConsumptionRecord[] = [];
-
-if (typeof window !== 'undefined') {
-  try {
-    const saved = localStorage.getItem('micamino_records');
-    if (saved) {
-      records = JSON.parse(saved).map((r: any) => ({
-        ...r,
-        dateTime: new Date(r.dateTime)
-      }));
-    }
-  } catch (e) {
-    console.error('Error parsing localStorage records', e);
+  if (error) {
+    console.error('Error fetching records:', error);
+    return [];
   }
+
+  return data.map((r: any) => ({
+    id: r.id,
+    dateTime: new Date(r.fecha),
+    quantity: r.cantidad_consumida,
+    storageAmount: r.stock_restante,
+    emotionalState: r.emocion as EmotionalState,
+    anxietyLevel: r.nivel_ansiedad,
+    triggers: r.motivos as Trigger[],
+    notes: r.notas || '',
+  }));
 }
 
-export function getRecords(): ConsumptionRecord[] {
-  return [...records].sort((a, b) => 
-    new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
-  );
-}
-
-export function addRecord(record: Omit<ConsumptionRecord, 'id'>): ConsumptionRecord {
-  const newRecord: ConsumptionRecord = {
-    ...record,
-    id: crypto.randomUUID(),
-    dateTime: new Date(record.dateTime),
+export async function addRecord(record: Omit<ConsumptionRecord, 'id'>): Promise<ConsumptionRecord> {
+  const newRecord = {
+    fecha: record.dateTime.toISOString(),
+    cantidad_consumida: record.quantity,
+    stock_restante: record.storageAmount,
+    emocion: record.emotionalState,
+    nivel_ansiedad: record.anxietyLevel,
+    motivos: record.triggers,
+    notas: record.notes,
   };
-  records.push(newRecord);
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem('micamino_records', JSON.stringify(records));
-    } catch (e) {
-      console.error('Error saving to localStorage', e);
-    }
+
+  const { data, error } = await supabase
+    .from('registros_consumo')
+    .insert([newRecord])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding record:', error);
+    throw error;
   }
-  return newRecord;
+
+  return {
+    id: data.id,
+    dateTime: new Date(data.fecha),
+    quantity: data.cantidad_consumida,
+    storageAmount: data.stock_restante,
+    emotionalState: data.emocion as EmotionalState,
+    anxietyLevel: data.nivel_ansiedad,
+    triggers: data.motivos as Trigger[],
+    notes: data.notas || '',
+  };
 }
 
-export function deleteRecord(id: string): void {
-  records = records.filter(r => r.id !== id);
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem('micamino_records', JSON.stringify(records));
-    } catch (e) {
-      console.error('Error saving to localStorage', e);
-    }
+export async function deleteRecord(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('registros_consumo')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting record:', error);
+    throw error;
   }
 }
 
-export function getStats() {
+export async function getStats() {
+  const records = await getRecords();
+  
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

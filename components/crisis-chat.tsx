@@ -22,10 +22,16 @@ export function CrisisChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [chatMounted, setChatMounted] = useState(false);
   
+  const [stats, setStats] = useState<any>(null);
+
+  useEffect(() => {
+    getStats().then(setStats);
+  }, []);
+
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
     body: {
-      stats: getStats()
+      stats: stats
     }
   } as any);
 

@@ -60,7 +60,7 @@ export function ConsumptionForm() {
 
     setSaving(true);
     
-    addRecord({
+    await addRecord({
       dateTime: new Date(dateTime),
       emotionalState,
       triggers: selectedTriggers,

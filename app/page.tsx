@@ -24,7 +24,7 @@ export default function HomePage() {
 
   useEffect(() => {
     setMounted(true);
-    setStats(getStats());
+    getStats().then(setStats);
   }, []);
 
   return (

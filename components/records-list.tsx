@@ -31,12 +31,13 @@ export function RecordsList() {
 
   useEffect(() => {
     setMounted(true);
-    setRecords(getRecords());
+    getRecords().then(setRecords);
   }, []);
 
-  const handleDelete = (id: string) => {
-    removeRecord(id);
-    setRecords(getRecords());
+  const handleDelete = async (id: string) => {
+    await removeRecord(id);
+    const newRecords = await getRecords();
+    setRecords(newRecords);
   };
 
   const formatDate = (date: Date) => {
