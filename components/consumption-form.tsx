@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   EmotionalState, 
   Trigger, 
@@ -16,18 +16,29 @@ import {
 } from '@/lib/types';
 import { addRecord } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { Check, Save } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-
-const emotionalStates: EmotionalState[] = [
-  'tranquilo', 'ansioso', 'estresado', 'triste', 
-  'enojado', 'aburrido', 'feliz', 'neutral'
-];
+import { Check, Save, MousePointer2 } from 'lucide-react';
 
 const triggers: Trigger[] = [
   'estres_laboral', 'problemas_personales', 'aburrimiento',
   'presion_social', 'insomnio', 'ansiedad', 'celebracion', 'habito', 'otro'
 ];
+
+function getEmotionFromCoords(x: number, y: number): EmotionalState {
+  // x (anxiety/energy): 0 to 1
+  // y (valence/mood): 0 to 1 (0 = positive, 1 = negative)
+  
+  if (y < 0.5) { // Positive half
+    if (x < 0.4) return 'tranquilo';
+    if (x < 0.7) return 'neutral';
+    return 'feliz';
+  } else { // Negative half
+    if (x < 0.3) return 'aburrido';
+    if (x < 0.5) return 'triste';
+    if (x < 0.7) return 'ansioso';
+    if (y > 0.7 && x > 0.8) return 'enojado';
+    return 'estresado';
+  }
+}
 
 export function ConsumptionForm() {
   const router = useRouter();
@@ -39,12 +50,48 @@ export function ConsumptionForm() {
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     return now.toISOString().slice(0, 16);
   });
+  
+  // Mood Grid State
+  const [pointerPos, setPointerPos] = useState<{x: number, y: number} | null>(null);
   const [emotionalState, setEmotionalState] = useState<EmotionalState | null>(null);
+  const [anxietyLevel, setAnxietyLevel] = useState<number>(5);
+  
   const [selectedTriggers, setSelectedTriggers] = useState<Trigger[]>([]);
-  const [anxietyLevel, setAnxietyLevel] = useState(5);
   const [notes, setNotes] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [storageAmount, setStorageAmount] = useState(0);
+  
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const handleGridInteraction = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!gridRef.current) return;
+    
+    const rect = gridRef.current.getBoundingClientRect();
+    let clientX, clientY;
+    
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
+    }
+
+    let x = (clientX - rect.left) / rect.width;
+    let y = (clientY - rect.top) / rect.height;
+    
+    // Clamp between 0 and 1
+    x = Math.max(0, Math.min(1, x));
+    y = Math.max(0, Math.min(1, y));
+
+    setPointerPos({ x, y });
+    
+    // Calculate Anxiety (1-10 based on X axis)
+    const anxiety = Math.max(1, Math.min(10, Math.round(x * 10)));
+    setAnxietyLevel(anxiety);
+    
+    // Calculate Emotion
+    setEmotionalState(getEmotionFromCoords(x, y));
+  };
 
   const toggleTrigger = (trigger: Trigger) => {
     setSelectedTriggers(prev => 
@@ -60,27 +107,32 @@ export function ConsumptionForm() {
 
     setSaving(true);
     
-    await addRecord({
-      dateTime: new Date(dateTime),
-      emotionalState,
-      triggers: selectedTriggers,
-      anxietyLevel,
-      notes,
-      quantity,
-      storageAmount,
-    });
+    try {
+      await addRecord({
+        dateTime: new Date(dateTime),
+        emotionalState,
+        triggers: selectedTriggers,
+        anxietyLevel,
+        notes,
+        quantity,
+        // storageAmount is undefined, so it doesn't update stock
+      });
 
-    setSaved(true);
-    setTimeout(() => {
-      router.push('/historial');
-    }, 1000);
+      setSaved(true);
+      setTimeout(() => {
+        router.push('/historial');
+      }, 1000);
+    } catch (error) {
+      console.error(error);
+      setSaving(false);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Cuando ocurrio</CardTitle>
+          <CardTitle>Cuando ocurrió</CardTitle>
           <CardDescription>
             Registra la fecha y hora del momento de consumo
           </CardDescription>
@@ -97,190 +149,155 @@ export function ConsumptionForm() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Como te sentias</CardTitle>
+          <CardTitle>Estado y Desencadenantes</CardTitle>
           <CardDescription>
-            Selecciona el estado emocional que mejor describe como te sentias
+            Selecciona qué detonó este registro y haz clic en el mapa para ubicar tu estado de ánimo.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {emotionalStates.map((state) => (
-              <button
-                key={state}
-                type="button"
-                onClick={() => setEmotionalState(state)}
-                className={cn(
-                  'rounded-lg px-4 py-3 text-sm font-medium transition-all',
-                  emotionalState === state
-                    ? emotionalStateColors[state]
-                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                )}
-              >
-                {emotionalStateLabels[state]}
-              </button>
-            ))}
+        <CardContent className="space-y-6">
+          
+          {/* Triggers */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium leading-none">Desencadenantes</h4>
+            <div className="flex flex-wrap gap-2">
+              {triggers.map((trigger) => (
+                <button
+                  key={trigger}
+                  type="button"
+                  onClick={() => toggleTrigger(trigger)}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-xs font-medium transition-all flex items-center gap-1.5 border',
+                    selectedTriggers.includes(trigger)
+                      ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                      : 'bg-secondary/50 text-secondary-foreground border-transparent hover:bg-secondary'
+                  )}
+                >
+                  {selectedTriggers.includes(trigger) && <Check className="h-3 w-3" />}
+                  {triggerLabels[trigger]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Mood Grid */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium leading-none flex justify-between">
+              <span>Mapa Emocional</span>
+              {emotionalState && (
+                <span className="text-primary font-bold">{emotionalStateLabels[emotionalState]} (Ansiedad: {anxietyLevel}/10)</span>
+              )}
+            </h4>
+            <div className="relative w-full aspect-square max-h-[350px] mx-auto select-none touch-none rounded-xl overflow-hidden shadow-inner border border-border/50"
+                 ref={gridRef}
+                 onMouseDown={handleGridInteraction}
+                 onMouseMove={(e) => {
+                   if (e.buttons === 1) handleGridInteraction(e);
+                 }}
+                 onTouchStart={handleGridInteraction}
+                 onTouchMove={handleGridInteraction}
+            >
+              {/* Grid Background gradient */}
+              <div 
+                className="absolute inset-0 opacity-80"
+                style={{
+                  background: `
+                    radial-gradient(circle at 0% 0%, #3b82f6 0%, transparent 60%),
+                    radial-gradient(circle at 100% 0%, #eab308 0%, transparent 60%),
+                    radial-gradient(circle at 0% 100%, #64748b 0%, transparent 60%),
+                    radial-gradient(circle at 100% 100%, #ef4444 0%, transparent 60%)
+                  `,
+                  backgroundColor: '#0f172a'
+                }}
+              />
+              
+              {/* Axes labels */}
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white/70 uppercase tracking-widest">Positivo</div>
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white/70 uppercase tracking-widest">Negativo</div>
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] font-bold text-white/70 uppercase tracking-widest">Baja Energía</div>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 text-[10px] font-bold text-white/70 uppercase tracking-widest">Alta Ansiedad</div>
+
+              {/* Grid lines */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+                <div className="w-full h-[1px] bg-white absolute top-1/2" />
+                <div className="h-full w-[1px] bg-white absolute left-1/2" />
+              </div>
+
+              {/* Interaction prompt */}
+              {!pointerPos && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-white/80 animate-pulse">
+                  <MousePointer2 className="h-8 w-8 mb-2 opacity-50" />
+                  <span className="text-sm font-medium bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">Toca para ubicar tu estado</span>
+                </div>
+              )}
+
+              {/* Pointer */}
+              {pointerPos && (
+                <div 
+                  className="absolute w-6 h-6 -ml-3 -mt-3 rounded-full border-2 border-white shadow-[0_0_15px_rgba(255,255,255,0.7)] pointer-events-none transition-transform duration-75 scale-110"
+                  style={{
+                    left: `${pointerPos.x * 100}%`,
+                    top: `${pointerPos.y * 100}%`,
+                    backgroundColor: emotionalState ? (
+                      emotionalState === 'tranquilo' ? '#3b82f6' :
+                      emotionalState === 'feliz' ? '#eab308' :
+                      emotionalState === 'aburrido' || emotionalState === 'triste' ? '#64748b' :
+                      '#ef4444'
+                    ) : 'white'
+                  }}
+                >
+                  <div className="absolute inset-0 bg-white/30 rounded-full animate-ping" />
+                </div>
+              )}
+            </div>
+            
+            {emotionalState && (
+               <div className="text-center pt-2">
+                 <span className={cn(
+                   'inline-flex items-center px-4 py-1.5 rounded-full text-sm font-semibold shadow-sm',
+                   emotionalStateColors[emotionalState]
+                 )}>
+                   Estado: {emotionalStateLabels[emotionalState]}
+                 </span>
+               </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Nivel de ansiedad</CardTitle>
+          <CardTitle>Cantidad y Notas</CardTitle>
           <CardDescription>
-            Del 1 (muy bajo) al 10 (muy alto), como estaba tu ansiedad
+            Detalles adicionales de este registro
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground w-8">1</span>
-            <input
-              type="range"
-              min="1"
-              max="10"
-              value={anxietyLevel}
-              onChange={(e) => setAnxietyLevel(Number(e.target.value))}
-              className="flex-1 h-2 rounded-lg appearance-none cursor-pointer accent-primary"
+          <div className="space-y-2">
+            <Label htmlFor="quantity">Cantidad (opcional)</Label>
+            <Input
+              id="quantity"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="Ej: 1 joint, 2 pipazos, etc."
             />
-            <span className="text-sm text-muted-foreground w-8">10</span>
           </div>
-          <div className="text-center">
-            <span className={cn(
-              'inline-flex items-center justify-center w-12 h-12 rounded-full text-xl font-bold',
-              anxietyLevel <= 3 ? 'bg-success/20 text-success' :
-              anxietyLevel <= 6 ? 'bg-accent/20 text-accent-foreground' :
-              'bg-stressed/20 text-stressed'
-            )}>
-              {anxietyLevel}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Que lo desencadeno</CardTitle>
-          <CardDescription>
-            Selecciona uno o mas factores que contribuyeron
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {triggers.map((trigger) => (
-              <button
-                key={trigger}
-                type="button"
-                onClick={() => toggleTrigger(trigger)}
-                className={cn(
-                  'rounded-full px-4 py-2 text-sm font-medium transition-all flex items-center gap-2',
-                  selectedTriggers.includes(trigger)
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                )}
-              >
-                {selectedTriggers.includes(trigger) && <Check className="h-3 w-3" />}
-                {triggerLabels[trigger]}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Cantidad (opcional)</CardTitle>
-          <CardDescription>
-            Describe brevemente cuanto consumiste
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Input
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            placeholder="Ej: 1 joint, 2 pipazos, etc."
-            className="max-w-sm"
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div>
-            <CardTitle>Almacenamiento en casa (Stock)</CardTitle>
-            <CardDescription className="mt-1">
-              ¿Cuántos gramos tienes en tu posesión en este momento?
-            </CardDescription>
-          </div>
-          <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">
-            Uso Analítico de IA
-          </Badge>
-        </CardHeader>
-        <CardContent className="space-y-4 mt-2">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Registrar tu stock ayuda a la IA a comprender si tus detonantes se asocian con la <strong>alta exposición</strong> (tener mucho stock cerca) o con la <strong>ansiedad de desabastecimiento</strong> (preocupación al quedarte sin nada).
-          </p>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground w-8 font-bold">0g</span>
-            <input
-              type="range"
-              min="0"
-              max="10"
-              step="0.1"
-              value={storageAmount}
-              onChange={(e) => setStorageAmount(Number(e.target.value))}
-              className="flex-1 h-2 rounded-lg appearance-none cursor-pointer accent-primary"
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notas personales</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Escribe aquí tus pensamientos, cómo te sientes ahora..."
+              className="min-h-[100px]"
             />
-            <span className="text-sm text-muted-foreground w-8 font-bold">10g</span>
           </div>
-          <div className="text-center flex flex-col items-center justify-center">
-            <span 
-              className="inline-flex items-center justify-center w-14 h-14 rounded-full text-lg font-bold text-white shadow-sm transition-colors duration-300"
-              style={{
-                backgroundColor: 
-                  storageAmount === 0 ? '#2a9d8f' :
-                  storageAmount <= 2 ? '#e9c46a' :
-                  storageAmount <= 5 ? '#f4a261' :
-                  '#e76f51'
-              }}
-            >
-              {storageAmount.toFixed(1)}g
-            </span>
-            <span className={cn(
-              'badge mt-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm',
-              storageAmount === 0 ? 'bg-success/20 text-success border border-success/30' :
-              storageAmount <= 2 ? 'bg-warning/20 text-warning-foreground border border-warning/30' :
-              storageAmount <= 5 ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-              'bg-destructive/20 text-destructive border border-destructive/30'
-            )}>
-              {storageAmount === 0 ? "Sin inventario en casa (Fricción alta, ¡excelente!)" :
-               storageAmount <= 2 ? "Inventario bajo (Riesgo de ansiedad de escasez)" :
-               storageAmount <= 5 ? "Inventario moderado (Vulnerabilidad media)" :
-               "Inventario alto (Exposición alta, riesgo de recaída)"}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Notas personales</CardTitle>
-          <CardDescription>
-            Cualquier reflexion o pensamiento que quieras registrar
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Escribe aqui tus pensamientos, como te sientes ahora, que podrias hacer diferente..."
-            className="min-h-[120px]"
-          />
         </CardContent>
       </Card>
 
       <Button 
         type="submit" 
         size="lg" 
-        className="w-full"
+        className="w-full shadow-lg"
         disabled={!emotionalState || saving}
       >
         {saved ? (

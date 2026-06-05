@@ -1,0 +1,54 @@
+# Rediseño del Registro de Consumo (Mood Grid)
+
+El objetivo de este plan es optimizar el formulario de registro de consumo para que sea mucho más rápido e intuitivo, eliminando la fricción de los múltiples clicks y consolidando los estados emocionales, el nivel de ansiedad y los desencadenantes en una única interfaz interactiva ("estilo selector de color de Photoshop"). Además, se retirará el campo de "Stock" (almacenamiento) de este formulario.
+
+## Proposed Changes
+
+### 1. Eliminación del campo "Stock"
+- **Acción:** Eliminar la tarjeta de "Almacenamiento en casa (Stock)" del formulario de registro (`components/consumption-form.tsx`).
+- **Justificación:** El stock se registrará únicamente cuando se realiza una compra o abastecimiento. El stock restante se calculará dinámicamente restando el consumo registrado del stock inicial, en lugar de pedirlo cada vez.
+- **Implementación:** El valor de `storageAmount` se puede enviar como `undefined` o `0` por ahora al crear el registro, para luego refactorizar la lógica del historial/estadísticas.
+
+### 2. Consolidación en un "Selector de Estado Integral" (Mood Picker)
+En lugar de tener tres secciones separadas (Emoción, Ansiedad, Desencadenante), vamos a crear un componente interactivo unificado. 
+
+**Concepto Visual:**
+- **El Área Principal (Cuadrícula 2D):** Un mapa bidimensional donde el Eje X representa la **Ansiedad/Energía** (de 1 a 10) y el Eje Y representa la **Valencia Emocional** (de Triste/Enojado a Feliz/Tranquilo). Al hacer click o arrastrar un "puntero" en esta cuadrícula, se seleccionan automáticamente tanto la *Emoción* dominante como el *Nivel de Ansiedad*.
+- **El Deslizador / Selector Adicional:** Similar al control de "Tono" (Hue) en Photoshop, tendremos un selector lateral o inferior con iconos/etiquetas para el **Desencadenante** (Trigger). Al seleccionar un desencadenante, el color de la cuadrícula puede cambiar ligeramente para reflejar el contexto (ej. rojo para estrés, azul para insomnio), haciendo la experiencia muy inmersiva.
+
+**Flujo del Usuario:**
+1. El usuario entra al formulario.
+2. Hace click en el "Desencadenante" principal (una lista de chips rápidos en la parte superior o un slider).
+3. Hace click en un punto de la "Cuadrícula de Emociones". Esto selecciona inmediatamente la Emoción y la Ansiedad (ej. esquina superior derecha = Feliz + Alta Energía; esquina inferior derecha = Ansioso + Estrés Alto).
+4. (Opcional) Ingresa la cantidad consumida en un campo de texto simple.
+5. Guarda.
+
+### Archivos Afectados
+
+#### [MODIFY] [consumption-form.tsx](file:///c:/Users/EQUIPO/Desktop/dotnet-mvc-project/MICaminoNext/components/consumption-form.tsx)
+- Se eliminará la lógica y renderizado de `storageAmount`.
+- Se reemplazarán los 3 `Card` actuales (Como te sentias, Nivel de ansiedad, Que lo desencadeno) por un nuevo componente o un bloque consolidado.
+- Se mantendrá el campo de "Cantidad" intacto.
+
+## Open Questions
+
+> [!IMPORTANT]  
+> **1. Mapeo de la Cuadrícula (Grid):** ¿Te gustaría que la cuadrícula asigne automáticamente la etiqueta de la emoción dependiendo de la zona donde el usuario haga clic? Por ejemplo:
+> - Arriba a la Izquierda: Tranquilo (Ansiedad Baja, Valencia Positiva)
+> - Arriba a la Derecha: Feliz/Eufórico (Ansiedad Alta, Valencia Positiva)
+> - Abajo a la Izquierda: Triste/Aburrido (Ansiedad Baja, Valencia Negativa)
+> - Abajo a la Derecha: Ansioso/Estresado/Enojado (Ansiedad Alta, Valencia Negativa)
+> ¿Te parece bien este mapeo bidimensional?
+
+> [!IMPORTANT]  
+> **2. Desencadenantes:** Al ser una selección múltiple actualmente (puedes elegir varios desencadenantes), ¿prefieres que mantengamos botones estilo "chips" rápidos justo encima de la cuadrícula, o quieres forzar a que sea un único desencadenante principal a través de un control estilo "slider" de color?
+
+## Verification Plan
+1. Ejecutar el entorno de desarrollo de Next.js (`npm run dev`).
+2. Navegar a la página de registro.
+3. Verificar que la interfaz muestra el nuevo selector estilo "Photoshop".
+4. Validar que la selección en la cuadrícula actualiza correctamente los estados de emoción y ansiedad en el componente.
+5. Realizar un registro de prueba y confirmar que se guarda correctamente en Supabase (y que el stock no se incluye o no interfiere).
+
+
+genial pero añadamos el boton para hacer el registro del stock en la navbar plz y toda la logica para implementarlo

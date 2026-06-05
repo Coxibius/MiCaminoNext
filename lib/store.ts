@@ -58,6 +58,20 @@ export async function addRecord(record: Omit<ConsumptionRecord, 'id'>): Promise<
   };
 }
 
+export async function addStockUpdate(amount: number): Promise<ConsumptionRecord> {
+  // Para actualizar el stock sin registrar un consumo real, 
+  // insertamos un registro especial con cantidad "" y emoción neutral
+  return addRecord({
+    dateTime: new Date(),
+    quantity: "Actualización de Inventario",
+    storageAmount: amount,
+    emotionalState: "neutral",
+    anxietyLevel: 5,
+    triggers: [],
+    notes: "Registro de nuevo stock ingresado"
+  });
+}
+
 export async function deleteRecord(id: string): Promise<void> {
   const { error } = await supabase
     .from('registros_consumo')

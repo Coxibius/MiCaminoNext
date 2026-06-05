@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { StockDialog } from '@/components/stock-dialog';
 
 const navItems = [
   { href: '/', label: 'Inicio', icon: Leaf },
@@ -43,6 +44,7 @@ export function Header() {
               <span className="hidden sm:inline">{label}</span>
             </Link>
           ))}
+          <StockDialog />
           <ThemeToggle />
         </nav>
       </div>
