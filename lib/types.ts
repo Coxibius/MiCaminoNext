@@ -17,6 +17,12 @@ export type Trigger =
   | 'ansiedad'
   | 'celebracion'
   | 'habito'
+  | 'antes_de_dormir'
+  | 'recompensa'
+  | 'videojuegos_pantallas'
+  | 'creatividad_foco'
+  | 'soledad'
+  | 'frustracion'
   | 'otro';
 
 export interface ConsumptionRecord {
@@ -50,6 +56,12 @@ export const triggerLabels: Record<Trigger, string> = {
   ansiedad: 'Ansiedad',
   celebracion: 'Celebracion',
   habito: 'Por habito',
+  antes_de_dormir: 'Antes de dormir',
+  recompensa: 'Premio / Me lo gané',
+  videojuegos_pantallas: 'Videojuegos o series',
+  creatividad_foco: 'Inspiración o enfoque',
+  soledad: 'Soledad',
+  frustracion: 'Frustración',
   otro: 'Otro',
 };
 
