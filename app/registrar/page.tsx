@@ -1,6 +1,8 @@
 import { Header } from '@/components/header';
 import { ConsumptionForm } from '@/components/consumption-form';
 
+export const dynamic = 'force-dynamic';
+
 export default function RegistrarPage() {
   return (
     <div className="min-h-screen bg-background">

@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle, Download } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function HistorialPage() {
   return (
     <div className="min-h-screen bg-background">

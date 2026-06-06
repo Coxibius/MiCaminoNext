@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { getStats } from '@/lib/store';
 import { PlusCircle, MessageCircleHeart, BookOpen, Sparkles } from 'lucide-react';
 import { PersonalMotives } from '@/components/personal-motives';
+import { seedDevData } from '@/lib/seed';
 
 export default function HomePage() {
   const [stats, setStats] = useState({
@@ -21,6 +22,24 @@ export default function HomePage() {
     currentStorage: null as number | null,
   });
   const [mounted, setMounted] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeed = async () => {
+    if (!window.confirm('¿Estás seguro de que quieres limpiar la base de datos de Supabase e insertar los datos de prueba? Esto borrará tus registros actuales.')) {
+      return;
+    }
+    setSeeding(true);
+    try {
+      await seedDevData();
+      alert('¡Datos de prueba sembrados exitosamente!');
+      window.location.reload();
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error al sembrar datos: ${err.message || err}`);
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -122,6 +141,43 @@ export default function HomePage() {
             </ul>
           </CardContent>
         </Card>
+
+        {process.env.NODE_ENV === 'development' && (
+          <Card className="border-destructive/20 bg-destructive/5 dark:bg-destructive/10">
+            <CardHeader>
+              <CardTitle className="text-destructive flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Panel de Desarrollo
+              </CardTitle>
+              <CardDescription>
+                Herramientas de prueba para el entorno local.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Este panel te permite resetear la base de datos de Supabase e insertar un conjunto de datos simulados 
+                que representan 14 registros de consumo con jerga real, notas, estados emocionales y triggers típicos.
+              </p>
+              <div>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleSeed}
+                  disabled={seeding}
+                  className="font-medium"
+                >
+                  {seeding ? (
+                    <>
+                      <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Sembrando datos...
+                    </>
+                  ) : (
+                    'Limpiar y Sembrar Datos de Prueba'
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );

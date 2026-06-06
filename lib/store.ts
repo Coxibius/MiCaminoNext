@@ -2,6 +2,11 @@ import { ConsumptionRecord, EmotionalState, Trigger } from './types';
 import { supabase } from './supabase';
 
 export async function getRecords(): Promise<ConsumptionRecord[]> {
+  if (!supabase) {
+    console.warn('Supabase client is not configured.');
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('registros_consumo')
     .select('*')
@@ -25,6 +30,10 @@ export async function getRecords(): Promise<ConsumptionRecord[]> {
 }
 
 export async function addRecord(record: Omit<ConsumptionRecord, 'id'>): Promise<ConsumptionRecord> {
+  if (!supabase) {
+    throw new Error('Supabase client is not configured.');
+  }
+
   const newRecord = {
     fecha: record.dateTime.toISOString(),
     cantidad_consumida: record.quantity,
@@ -73,6 +82,10 @@ export async function addStockUpdate(amount: number): Promise<ConsumptionRecord>
 }
 
 export async function deleteRecord(id: string): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase client is not configured.');
+  }
+
   const { error } = await supabase
     .from('registros_consumo')
     .delete()
@@ -85,6 +98,18 @@ export async function deleteRecord(id: string): Promise<void> {
 }
 
 export async function getStats() {
+  if (!supabase) {
+    return {
+      totalRecords: 0,
+      weekRecords: 0,
+      monthRecords: 0,
+      avgAnxiety: 0,
+      mostCommonTrigger: null as string | null,
+      daysSinceLastConsumption: null as number | null,
+      currentStorage: null as number | null,
+    };
+  }
+
   const records = await getRecords();
   
   const now = new Date();

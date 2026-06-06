@@ -1,6 +1,8 @@
 import { Header } from '@/components/header';
 import { CrisisChat } from '@/components/crisis-chat';
 
+export const dynamic = 'force-dynamic';
+
 export default function ApoyoPage() {
   return (
     <div className="min-h-screen bg-background">
